@@ -54,4 +54,17 @@ public class WekaJava {
         }
         model.buildClassifier(data);
     }
+
+    public void saveModel() throws Exception {
+        if (model != null) {
+            weka.core.SerializationHelper.write("weka.model", model);
+        }
+        else {
+            System.out.println("Model is null");
+        }
+    }
+
+    public void loadModel(String file) throws Exception {
+        model = (Classifier) weka.core.SerializationHelper.read(file);
+    }
 }
