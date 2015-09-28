@@ -2,10 +2,10 @@ package com.company;
 
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.List;
 import weka.classifiers.Classifier;
 import weka.core.Attribute;
 import weka.core.Capabilities;
-import weka.core.Capabilities.Capability;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.NoSupportForMissingValuesException;
@@ -17,15 +17,16 @@ import weka.filters.unsupervised.attribute.Add;
  * @author Tirta Wening Rachman
  */
 
-public class CustomID3 extends Classifier {
+public class CustomC45 extends Classifier {
 
     private final double MISSING_VALUE = Double.NaN;
     private final double DOUBLE_COMPARE_VALUE = 1e-6;
+    private List<Rule> ruleList;
 
     /**
      * The node's children.
      */
-    private CustomID3[] m_Children;
+    private CustomC45[] m_Children;
 
     /**
      * Attribute used for splitting.
@@ -58,12 +59,12 @@ public class CustomID3 extends Classifier {
         result.disableAll();
 
         // attributes
-        result.enable(Capability.NOMINAL_ATTRIBUTES);
-        result.enable(Capability.NUMERIC_ATTRIBUTES);
+        result.enable(Capabilities.Capability.NOMINAL_ATTRIBUTES);
+        result.enable(Capabilities.Capability.NUMERIC_ATTRIBUTES);
 
         // class
-        result.enable(Capability.NOMINAL_CLASS);
-        result.enable(Capability.MISSING_CLASS_VALUES);
+        result.enable(Capabilities.Capability.NOMINAL_CLASS);
+        result.enable(Capabilities.Capability.MISSING_CLASS_VALUES);
 
         // instances
         result.setMinimumNumberInstances(0);
@@ -72,7 +73,7 @@ public class CustomID3 extends Classifier {
     }
 
     /**
-     * Builds Id3 tree classifier.
+     * Builds CustomC45 tree classifier.
      *
      * @param data the training data
      * @exception Exception if classifier failed to build
@@ -80,18 +81,24 @@ public class CustomID3 extends Classifier {
     @Override
     public void buildClassifier(Instances data) throws Exception {
 
-        //periksa data
+        // Periksa data
         getCapabilities().testWithFail(data);
 
-        // Menghapus instans tanpa class
+        // Hapus instances dengan missing class
         data = new Instances(data);
         data.deleteWithMissingClass();
 
-        makeTree(data);
+        makePrunedTree(data);
     }
 
+    private void makePrunedTree(Instances data) throws Exception {
+        makeTree(data);
+        convertToRule();
+        pruneTree(data);
+    }
+    
     /**
-     * Creates an Id3 tree.
+     * Creates an CustomC45 tree.
      *
      * @param data the training data
      * @exception Exception if tree failed to build
@@ -104,21 +111,21 @@ public class CustomID3 extends Classifier {
             m_Label = MISSING_VALUE;
             m_ClassDistribution = new double[data.numClasses()];
         } else {
-            // Mencari IG maksimum
-            double[] infoGains = new double[data.numAttributes()];
+            // Cari IG maksimum
+            double[] gainRatios = new double[data.numAttributes()];
 
             data = toNominalInstances(data);
 
             Enumeration attEnum = data.enumerateAttributes();
             while (attEnum.hasMoreElements()) {
                 Attribute att = (Attribute) attEnum.nextElement();
-                infoGains[att.index()] = computeInfoGain(data, att);
+                gainRatios[att.index()] = computeGainRatio(data, att);
             }
 
-            m_Attribute = data.attribute(maxIndex(infoGains));
+            m_Attribute = data.attribute(maxIndex(gainRatios));
 
             // Membuat daun jika IG = 0
-            if (doubleEqual(infoGains[m_Attribute.index()], 0)) {
+            if (doubleEqual(gainRatios[m_Attribute.index()], 0)) {
                 m_Attribute = null;
 
                 m_ClassDistribution = new double[data.numClasses()];
@@ -133,15 +140,29 @@ public class CustomID3 extends Classifier {
             } else {
                 // Membuat pohon baru di bawah node
                 Instances[] splitData = splitData(data, m_Attribute);
-                m_Children = new CustomID3[m_Attribute.numValues()];
+                m_Children = new CustomC45[m_Attribute.numValues()];
                 for (int j = 0; j < m_Attribute.numValues(); j++) {
-                    m_Children[j] = new CustomID3();
+                    m_Children[j] = new CustomC45();
                     m_Children[j].makeTree(splitData[j]);
                 }
             }
         }
     }
-
+    
+    /**
+     * Use the list of rule to prune the created tree
+     */
+    private void pruneTree(Instances data) {
+        
+    }
+    
+    /**
+     * Convert Tree to List of Rule
+     */
+    private void convertToRule() {
+        
+    }
+    
     /**
      * Convert Instances with numeric attributes to nominal attributes
      *
@@ -154,14 +175,14 @@ public class CustomID3 extends Classifier {
             if (data.attribute(ix).isNumeric()) {
 
                 // Get an array of integer that consists of distinct values of the attribute
-                HashSet<Integer> numericSet = new HashSet<>();
+                HashSet<Double> numericSet = new HashSet<>();
                 for (int i = 0; i < data.numInstances(); ++i) {
-                    numericSet.add((int) (data.instance(i).value(att)));
+                    numericSet.add(data.instance(i).value(att));
                 }
 
-                Integer[] numericValues = new Integer[numericSet.size()];
+                Double[] numericValues = new Double[numericSet.size()];
                 int iterator = 0;
-                for (Integer i : numericSet) {
+                for (Double i : numericSet) {
                     numericValues[iterator] = i;
                     iterator++;
                 }
@@ -175,7 +196,7 @@ public class CustomID3 extends Classifier {
                 for (int i = 0; i < numericValues.length - 1; ++i) {
                     tempInstances[i] = convertInstances(data, att, numericValues[i]);
                     try {
-                        infoGains[i] = computeInfoGain(tempInstances[i], tempInstances[i].attribute(att.name()));
+                        infoGains[i] = computeGainRatio(tempInstances[i], tempInstances[i].attribute(att.name()));
                     } catch (Exception e) {
                     }
                 }
@@ -194,10 +215,10 @@ public class CustomID3 extends Classifier {
      * @param threshold the threshold for attribute value
      * @return Instances with all converted values
      */
-    private static Instances convertInstances(Instances data, Attribute att, int threshold) {
+    private static Instances convertInstances(Instances data, Attribute att, double threshold) {
         Instances newData = new Instances(data);
 
-        // Add attribute
+        // Add attribute        
         try {
             Add filter = new Add();
             filter.setAttributeIndex((att.index() + 2) + "");
@@ -206,10 +227,11 @@ public class CustomID3 extends Classifier {
             filter.setInputFormat(newData);
             newData = Filter.useFilter(newData, filter);
         } catch (Exception e) {
+            e.printStackTrace();
         }
 
         for (int i = 0; i < newData.numInstances(); ++i) {
-            if ((int) newData.instance(i).value(newData.attribute(att.name())) <= threshold) {
+            if ((double) newData.instance(i).value(newData.attribute(att.name())) <= threshold) {
                 newData.instance(i).setValue(newData.attribute(att.name() + "temp"), "<=" + threshold);
             } else {
                 newData.instance(i).setValue(newData.attribute(att.name() + "temp"), ">" + threshold);
@@ -227,8 +249,8 @@ public class CustomID3 extends Classifier {
      *
      * @param arr the array to be sorted
      */
-    private static void sortArray(Integer[] arr) {
-        int temp;
+    private static void sortArray(Double[] arr) {
+        double temp;
         for (int i = 0; i < arr.length - 1; i++) {
             for (int j = 1; j < arr.length - i; j++) {
                 if (arr[j - 1] > arr[j]) {
@@ -256,7 +278,7 @@ public class CustomID3 extends Classifier {
                 array[i] /= sum;
             }
         } else {
-            // Do nothing
+            // Do nothing       
         }
     }
 
@@ -306,7 +328,7 @@ public class CustomID3 extends Classifier {
         throws NoSupportForMissingValuesException {
 
         if (instance.hasMissingValue()) {
-            throw new NoSupportForMissingValuesException("CustomID3: Cannot handle missing values");
+            throw new NoSupportForMissingValuesException("CustomC45: Cannot handle missing values");
         }
         if (m_Attribute == null) {
             return m_Label;
@@ -323,13 +345,13 @@ public class CustomID3 extends Classifier {
             }
 
             if (isComparison) {
-                int threshold = getThreshold(val);
-                int instanceValue = (int) instance.value(m_Attribute);
+                double threshold = getThreshold(val);
+                double instanceValue = (double) instance.value(m_Attribute);
 
                 if (instanceValue <= threshold) {
-                    instance.setValue(m_Attribute, "<=" + threshold);
+                    instance.setValue(m_Attribute, "<=" + String.valueOf(threshold));
                 } else {
-                    instance.setValue(m_Attribute, ">" + threshold);
+                    instance.setValue(m_Attribute, ">" + String.valueOf(threshold));
                 }
             }
             return m_Children[(int) instance.value(m_Attribute)].
@@ -344,14 +366,8 @@ public class CustomID3 extends Classifier {
      * @param val the string to be parsed
      * @return the threshold parsed from the string
      */
-    private int getThreshold(String val) {
-        int threshold = 0;
-
-        for (int i = 2; i < val.length(); ++i) {
-            threshold = (10 * threshold) + Character.getNumericValue(val.charAt(i));
-        }
-
-        return threshold;
+    private double getThreshold(String val) {
+        return Double.parseDouble(val.replace("<=", ""));
     }
 
     /**
@@ -366,7 +382,7 @@ public class CustomID3 extends Classifier {
         throws NoSupportForMissingValuesException {
 
         if (instance.hasMissingValue()) {
-            throw new NoSupportForMissingValuesException("CustomID3: Cannot handle missing values");
+            throw new NoSupportForMissingValuesException("CustomC45: Cannot handle missing values");
         }
         if (m_Attribute == null) {
             return m_ClassDistribution;
@@ -385,9 +401,25 @@ public class CustomID3 extends Classifier {
     public String toString() {
 
         if ((m_ClassDistribution == null) && (m_Children == null)) {
-            return "CustomID3: No model built yet.";
+            return "CustomC45: No model built yet.";
         }
-        return "CustomID3\n\n" + toString(0);
+        return "CustomC45\n\n" + toString(0);
+    }
+
+    /**
+     * Computes Gain Ratio for an attribute.
+     *
+     * @param data the data for which gain ratio is to be computed
+     * @param att the attribute
+     * @return the gain ratio for the given attribute and data
+     * @throws Exception if computation fails
+     */
+    private static double computeGainRatio(Instances data, Attribute att)
+        throws Exception {
+
+        double infoGain = computeInfoGain(data, att);
+        double splitInfo = computeSplitInformation(data, att);
+        return infoGain > 0 ? infoGain / splitInfo : infoGain;
     }
 
     /**
@@ -436,6 +468,30 @@ public class CustomID3 extends Classifier {
             }
         }
         return entropy;
+    }
+
+    /**
+     * Computes Split information for an attribute.
+     *
+     * @param data the data for which split information is to be computed
+     * @param att the attribute
+     * @return the split information for the given attribute and data
+     * @throws Exception if computation fails
+     */
+    private static double computeSplitInformation(Instances data, Attribute att) throws Exception {
+
+        double splitInfo = 0;
+        Instances[] splitData = splitData(data, att);
+        double dataNumInstances = data.numInstances();
+
+        for (Instances splitdata : splitData) {
+            if (splitdata.numInstances() > 0) {
+                double splitNumInstances = splitdata.numInstances();
+                double proportion = splitNumInstances / dataNumInstances;
+                splitInfo -= proportion * log2(proportion);
+            }
+        }
+        return splitInfo;
     }
 
     /**
@@ -499,5 +555,108 @@ public class CustomID3 extends Classifier {
             }
         }
         return text.toString();
+    }
+
+    /**
+     * Adds this tree recursively to the buffer.
+     *
+     * @param id the unique id for the method
+     * @param buffer the buffer to add the source code to
+     * @return the last ID being used
+     * @throws Exception if something goes wrong
+     */
+    protected int toSource(int id, StringBuffer buffer) throws Exception {
+        int result;
+        int i;
+        int newID;
+        StringBuffer[] subBuffers;
+
+        buffer.append("\n");
+        buffer.append("  protected static double node").append(id).append("(Object[] i) {\n");
+
+        // leaf?
+        if (m_Attribute == null) {
+            result = id;
+            if (Double.isNaN(m_Label)) {
+                buffer.append("    return Double.NaN;");
+            } else {
+                buffer.append("    return ").append(m_Label).append(";");
+            }
+            if (m_ClassAttribute != null) {
+                buffer.append(" // ").append(m_ClassAttribute.value((int) m_Label));
+            }
+            buffer.append("\n");
+            buffer.append("  }\n");
+        } else {
+            buffer.append("    checkMissing(i, ").append(m_Attribute.index()).append(");\n\n");
+            buffer.append("    // ").append(m_Attribute.name()).append("\n");
+
+            // subtree calls
+            subBuffers = new StringBuffer[m_Attribute.numValues()];
+            newID = id;
+            for (i = 0; i < m_Attribute.numValues(); i++) {
+                newID++;
+
+                buffer.append("    ");
+                if (i > 0) {
+                    buffer.append("else ");
+                }
+                buffer.append("if (((String) i[").append(m_Attribute.index()).append("]).equals(\"").append(m_Attribute.value(i)).append("\"))\n");
+                buffer.append("      return node").append(newID).append("(i);\n");
+
+                subBuffers[i] = new StringBuffer();
+                newID = m_Children[i].toSource(newID, subBuffers[i]);
+            }
+            buffer.append("    else\n");
+            buffer.append("      throw new IllegalArgumentException(\"Value '\" + i[").append(m_Attribute.index()).append("] + \"' is not allowed!\");\n");
+            buffer.append("  }\n");
+
+            // output subtree code
+            for (i = 0; i < m_Attribute.numValues(); i++) {
+                buffer.append(subBuffers[i].toString());
+            }
+            subBuffers = null;
+
+            result = newID;
+        }
+
+        return result;
+    }
+
+    /**
+     * Returns a string that describes the classifier as source. The classifier
+     * will be contained in a class with the given name (there may be auxiliary
+     * classes), and will contain a method with the signature:
+     * <pre><code>
+     * public static double classify(Object[] i);
+     * </code></pre> where the array <code>i</code> contains elements that are
+     * either Double, String, with missing values represented as null. The
+     * generated code is public domain and comes with no warranty. <br/>
+     * Note: works only if class attribute is the last attribute in the dataset.
+     *
+     * @param className the name that should be given to the source class.
+     * @return the object source described by a string
+     * @throws Exception if the source can't be computed
+     */
+    public String toSource(String className) throws Exception {
+        StringBuffer result;
+        int id;
+
+        result = new StringBuffer();
+
+        result.append("class ").append(className).append(" {\n");
+        result.append("  private static void checkMissing(Object[] i, int index) {\n");
+        result.append("    if (i[index] == null)\n");
+        result.append("      throw new IllegalArgumentException(\"Null values "
+            + "are not allowed!\");\n");
+        result.append("  }\n\n");
+        result.append("  public static double classify(Object[] i) {\n");
+        id = 0;
+        result.append("    return node").append(id).append("(i);\n");
+        result.append("  }\n");
+        toSource(id, result);
+        result.append("}\n");
+
+        return result.toString();
     }
 }

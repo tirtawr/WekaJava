@@ -51,6 +51,10 @@ public class WekaJava {
                 break;
             case 2 :
                 model = new CustomID3();
+                break;
+            case 2 :
+                model = new CustomC45();
+                break;    
             default:
                 break;
         }
