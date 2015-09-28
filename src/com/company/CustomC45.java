@@ -11,6 +11,7 @@ import weka.core.Instances;
 import weka.core.NoSupportForMissingValuesException;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.Add;
+import weka.filters.unsupervised.attribute.Remove;
 
 /**
  *
@@ -169,13 +170,13 @@ public class CustomC45 extends Classifier {
      * @param data the data to be converted
      * @return Instances with nominal attributes
      */
-    private Instances toNominalInstances(Instances data) {
+    private Instances toNominalInstances(Instances data) throws Exception {
         for (int ix = 0; ix < data.numAttributes(); ++ix) {
             Attribute att = data.attribute(ix);
             if (data.attribute(ix).isNumeric()) {
 
                 // Get an array of integer that consists of distinct values of the attribute
-                HashSet<Double> numericSet = new HashSet<>();
+                HashSet<Double> numericSet = new HashSet<Double>();
                 for (int i = 0; i < data.numInstances(); ++i) {
                     numericSet.add(data.instance(i).value(att));
                 }
@@ -215,7 +216,7 @@ public class CustomC45 extends Classifier {
      * @param threshold the threshold for attribute value
      * @return Instances with all converted values
      */
-    private static Instances convertInstances(Instances data, Attribute att, double threshold) {
+    private static Instances convertInstances(Instances data, Attribute att, double threshold) throws Exception {
         Instances newData = new Instances(data);
 
         // Add attribute        
@@ -238,7 +239,10 @@ public class CustomC45 extends Classifier {
             }
         }
 
-        Instances finalData = Helper.removeAttribute(newData, (att.index() + 1) + "");
+        Remove remove = new Remove();
+        remove.setAttributeIndices((att.index() + 1) + "");
+        remove.setInputFormat(newData);
+        Instances finalData = Filter.useFilter(newData, remove);
         finalData.renameAttribute(finalData.attribute(att.name() + "temp"), att.name());
 
         return finalData;
