@@ -22,36 +22,12 @@ public class CustomID3 extends Classifier {
     private final double MISSING_VALUE = Double.NaN;
     private final double DOUBLE_COMPARE_VALUE = 1e-6;
 
-    /**
-     * The node's children.
-     */
     private CustomID3[] m_Children;
-
-    /**
-     * Attribute used for splitting.
-     */
     private Attribute m_Attribute;
-
-    /**
-     * Class value if node is leaf.
-     */
     private double m_Label;
-
-    /**
-     * Class distribution if node is leaf.
-     */
     private double[] m_ClassDistribution;
-
-    /**
-     * Class attribute of dataset.
-     */
     private Attribute m_ClassAttribute;
 
-    /**
-     * Returns default capabilities of the classifier.
-     *
-     * @return the capabilities of this classifier
-     */
     @Override
     public Capabilities getCapabilities() {
         Capabilities result = super.getCapabilities();
@@ -71,12 +47,6 @@ public class CustomID3 extends Classifier {
         return result;
     }
 
-    /**
-     * Builds Id3 tree classifier.
-     *
-     * @param data the training data
-     * @exception Exception if classifier failed to build
-     */
     @Override
     public void buildClassifier(Instances data) throws Exception {
 
@@ -90,12 +60,6 @@ public class CustomID3 extends Classifier {
         makeTree(data);
     }
 
-    /**
-     * Creates an Id3 tree.
-     *
-     * @param data the training data
-     * @exception Exception if tree failed to build
-     */
     private void makeTree(Instances data) throws Exception {
 
         // Periksa instans dalam node
@@ -142,12 +106,6 @@ public class CustomID3 extends Classifier {
         }
     }
 
-    /**
-     * Convert Instances with numeric attributes to nominal attributes
-     *
-     * @param data the data to be converted
-     * @return Instances with nominal attributes
-     */
     private Instances toNominalInstances(Instances data) {
         for (int ix = 0; ix < data.numAttributes(); ++ix) {
             Attribute att = data.attribute(ix);
@@ -186,14 +144,6 @@ public class CustomID3 extends Classifier {
         return data;
     }
 
-    /**
-     * Convert all instances attribute type and values into nominal
-     *
-     * @param data the data to be converted
-     * @param att attribute to be changed to nominal
-     * @param threshold the threshold for attribute value
-     * @return Instances with all converted values
-     */
     private static Instances convertInstances(Instances data, Attribute att, int threshold) {
         Instances newData = new Instances(data);
 
@@ -222,11 +172,6 @@ public class CustomID3 extends Classifier {
         return finalData;
     }
 
-    /**
-     * Sort an array of integer using bubble sort algorithm
-     *
-     * @param arr the array to be sorted
-     */
     private static void sortArray(Integer[] arr) {
         int temp;
         for (int i = 0; i < arr.length - 1; i++) {
@@ -240,11 +185,6 @@ public class CustomID3 extends Classifier {
         }
     }
 
-    /**
-     * Normalize the values in array of double
-     *
-     * @param array the array of double
-     */
     private void normalizeDouble(double[] array) {
         double sum = 0;
         for (double d : array) {
@@ -260,23 +200,10 @@ public class CustomID3 extends Classifier {
         }
     }
 
-    /**
-     * Check whether two double values are the same
-     *
-     * @param d1 the first double value
-     * @param d2 the second double value
-     * @return true if the values are the same, false if not
-     */
     private boolean doubleEqual(double d1, double d2) {
         return (d1 == d2) || Math.abs(d1 - d2) < DOUBLE_COMPARE_VALUE;
     }
 
-    /**
-     * Search for index with largest value from array of double
-     *
-     * @param array the array of double
-     * @return index of array with maximum value
-     */
     private static int maxIndex(double[] array) {
         double max = 0;
         int index = 0;
@@ -294,13 +221,6 @@ public class CustomID3 extends Classifier {
         }
     }
 
-    /**
-     * Classifies a given test instance using the decision tree.
-     *
-     * @param instance the instance to be classified
-     * @return the classification
-     * @throws NoSupportForMissingValuesException if instance has missing values
-     */
     @Override
     public double classifyInstance(Instance instance)
         throws NoSupportForMissingValuesException {
@@ -337,13 +257,6 @@ public class CustomID3 extends Classifier {
         }
     }
 
-    /**
-     * Parse a string of value to get its threshold e.g. "<=24" means the
-     * threshold is 24
-     *
-     * @param val the string to be parsed
-     * @return the threshold parsed from the string
-     */
     private int getThreshold(String val) {
         int threshold = 0;
 
@@ -354,13 +267,6 @@ public class CustomID3 extends Classifier {
         return threshold;
     }
 
-    /**
-     * Computes class distribution for instance using decision tree.
-     *
-     * @param instance the instance for which distribution is to be computed
-     * @return the class distribution for the given instance
-     * @throws NoSupportForMissingValuesException if instance has missing values
-     */
     @Override
     public double[] distributionForInstance(Instance instance)
         throws NoSupportForMissingValuesException {
@@ -376,11 +282,6 @@ public class CustomID3 extends Classifier {
         }
     }
 
-    /**
-     * Prints the decision tree using the private toString method from below.
-     *
-     * @return a textual description of the classifier
-     */
     @Override
     public String toString() {
 
@@ -390,14 +291,6 @@ public class CustomID3 extends Classifier {
         return "CustomID3\n\n" + toString(0);
     }
 
-    /**
-     * Computes information gain for an attribute.
-     *
-     * @param data the data for which info gain is to be computed
-     * @param att the attribute
-     * @return the information gain for the given attribute and data
-     * @throws Exception if computation fails
-     */
     private static double computeInfoGain(Instances data, Attribute att)
         throws Exception {
 
@@ -414,13 +307,6 @@ public class CustomID3 extends Classifier {
         return infoGain;
     }
 
-    /**
-     * Computes the entropy of a dataset.
-     *
-     * @param data the data for which entropy is to be computed
-     * @return the entropy of the data class distribution
-     * @throws Exception if computation fails
-     */
     private static double computeEntropy(Instances data) throws Exception {
 
         double[] labelCounts = new double[data.numClasses()];
@@ -438,23 +324,10 @@ public class CustomID3 extends Classifier {
         return entropy;
     }
 
-    /**
-     * Count the logarithm value with base 2 of a number
-     *
-     * @param num number that will be counted
-     * @return logarithm value with base 2
-     */
     private static double log2(double num) {
         return (num == 0) ? 0 : Math.log(num) / Math.log(2);
     }
 
-    /**
-     * split the dataset based on attribute
-     *
-     * @param data dataset used for splitting
-     * @param att attribute used to split the dataset
-     * @return
-     */
     private static Instances[] splitData(Instances data, Attribute att) {
 
         Instances[] splitData = new Instances[att.numValues()];
@@ -472,12 +345,6 @@ public class CustomID3 extends Classifier {
         return splitData;
     }
 
-    /**
-     * Outputs a tree at a certain level.
-     *
-     * @param level the level at which the tree is to be printed
-     * @return the tree as string at the given level
-     */
     private String toString(int level) {
 
         StringBuilder text = new StringBuilder();
